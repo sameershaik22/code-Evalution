@@ -1,0 +1,9 @@
+{
+  "assignment_id": "hw1",
+  "question": "Write a program that takes two numbers as input and prints their sum.",
+  "execution_mode": { "type": "program" },
+  "test_cases": [
+    { "input": "2 3", "expected_output": "5" },
+    { "input": "10 20", "expected_output": "30" }
+  ]
+}

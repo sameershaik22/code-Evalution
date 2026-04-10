@@ -1,0 +1,120 @@
+# Autograder - Aggregated Feedback Report
+## Assignment: hw1
+
+
+
+--- Feedback Report for: student1 ---
+Assignment: hw1
+
+--- STATIC ANALYSIS (Code Structure & Potential Issues) ---
+
+Your code has valid syntax.
+- For Loops: 0
+- Function Definitions: 0
+
+--- DYNAMIC ANALYSIS (Test Results) ---
+
+- Test 'test': PASS
+- Test 'test': PASS
+
+**Overall Score: 2 / 2 tests passed.**
+
+--- AI-Generated Feedback ---
+
+Technical Summary (for 'None'):
+```
+Alright, let's dive into your Python code! 🤓 You've written a simple program that takes two numbers as input and prints their sum. That's great! 👍
+
+Your code is working perfectly fine, but I wanted to point out a couple of things to help you write cleaner, more Pythonic code.
+
+First off, the code itself is simple and easy to understand, which is fantastic! Keep it up! However, there's always room for improvement. 😉
+
+Issue: You're using `input()` to get user input, but it returns a string by default. To convert that string into integers, you're using the `map(int, ...)` function. This works, but you can simplify it further by using the `map(int, input().split())` directly without storing the intermediate string in a variable.
+
+Improvement: Instead of using `map(int, ...)`, try this:
+
+```python
+a, b = map(int, input().split())
+```
+
+Review: You've done a nice job writing a simple Python program! Keep up the good work and focus on making your code more Pythonic. 😊
+
+Learning: To take this further, I'd recommend learning about list comprehensions in Python. They can help you write more concise and readable code.
+
+Practice: Here are a few exercises to help you practice:
+
+1. Write a program that takes three numbers as input and prints their average.
+2. Write a program that calculates the product of two numbers.
+3. Write a program that checks if a number is even or odd.
+```
+
+================================================================================
+
+
+
+--- Feedback Report for: student2 ---
+Assignment: hw1
+
+--- STATIC ANALYSIS (Code Structure & Potential Issues) ---
+
+Your code has valid syntax.
+- For Loops: 0
+- Function Definitions: 0
+
+--- DYNAMIC ANALYSIS (Test Results) ---
+
+- Test 'test': PASS
+- Test 'test': PASS
+
+**Overall Score: 2 / 2 tests passed.**
+
+--- AI-Generated Feedback ---
+
+Technical Summary (for 'None'):
+```
+Hey there! 😊 Let's dive into your C++ code that takes two numbers as input and prints their sum. Nice attempt! 👏
+
+Your code is working, but I wanted to share some tips with you for future reference.
+
+Explanation:
+You've written a simple program using the `std::cin` and `std::cout` streams to take user input and print the result. The variables `a` and `b` store the user-entered numbers, and the sum is calculated by adding them together.
+
+Correctness:
+Your code works correctly as expected. Good job! 👍
+
+Issues:
+While your code functions well, it's always good practice to include some error checking to ensure that valid input is provided. For example, you could check if the user entered an integer value for each number before performing calculations.
+
+Improvements:
+To add error checking, you can use a loop to keep asking the user for input until they provide valid numbers. Here's a simple way to do it:
+
+```cpp
+int getValidInput() {
+    int num;
+    while (std::cin >> num && std::cin.get() != '\n') { // remove non-integer input
+        std::cin.ignore(); // ignore any remaining non-integer input
+    }
+    return num;
+}
+
+int main() {
+    int a = getValidInput();
+    int b = getValidInput();
+    cout << a + b;
+    return 0;
+}
+```
+
+Review:
+Overall, your code is well-structured and easy to understand. Keep up the good work! 😊
+
+Learning:
+For future projects, focus on adding error checking and validation to your code to make it more robust.
+
+Practice:
+1. Write a program that takes two floating-point numbers as input and prints their average. Include error checking for valid floating-point inputs.
+2. Modify the previous exercise to calculate the product of the two numbers instead of the average.
+3. Create a program that asks the user for three integers and finds the largest one among them. Don't forget to handle cases where the user enters duplicate values or non-integer input.
+```
+
+================================================================================
