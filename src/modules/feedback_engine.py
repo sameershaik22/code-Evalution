@@ -30,7 +30,8 @@ def ollama_generate(system_prompt: str, user_prompt: str, temperature: float = 0
 class FeedbackEngine:
 
     def should_call_llm(self, dynamic_results):
-        return any(test["status"] != "pass" for test in dynamic_results)
+        # ✅ Always call AI (fix inconsistency)
+        return True
 
     def get_system_prompt(self, language: str):
         return f"""
@@ -74,6 +75,11 @@ What the student should learn next.
 Practice:
 Give 2–3 small practice ideas.
 
+IMPORTANT:
+- Follow this structure EXACTLY
+- Do not skip any section
+- Use clear headings
+
 Keep it natural and human-like.
 """
 
@@ -92,15 +98,6 @@ Keep it natural and human-like.
         dynamic_results = submission['analysis'].get('dynamic', [])
         static_results = submission['analysis'].get('static', {})
 
-        # 🔥 Skip AI if all tests pass
-        if not self.should_call_llm(dynamic_results):
-            submission['analysis']['feedback']['technical_summary'] = (
-                "Nice work! 🎉\n\n"
-                "Your code passed all the test cases successfully.\n"
-                "Good job — try improving code readability or exploring edge cases for even better solutions."
-            )
-            return submission
-
         # 🔥 Collect runtime errors
         errors = []
         for t in dynamic_results:
@@ -108,6 +105,10 @@ Keep it natural and human-like.
                 errors.append(t.get("error", ""))
 
         error_message = "\n".join(errors) if errors else "No runtime errors"
+
+        # ✅ CLEAN summary instead of raw JSON
+        passed = sum(1 for t in dynamic_results if t.get("status") == "pass")
+        failed = len(dynamic_results) - passed
 
         system_prompt = self.get_system_prompt(language)
 
@@ -119,16 +120,16 @@ Code:
 {code}
 
 Test Results:
-{dynamic_results}
-
-Static Analysis:
-{static_results}
+Passed: {passed}
+Failed: {failed}
 
 Errors:
 {error_message}
 
 Give helpful feedback to the student.
 """
+
+        print("⚡ Calling AI feedback...")
 
         response = ollama_generate(system_prompt, user_prompt)
 

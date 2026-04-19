@@ -1,9 +1,28 @@
 {
-  "assignment_id": "hw1",
-  "question": "Write a program that takes two numbers as input and prints their sum.",
-  "execution_mode": { "type": "program" },
+  "assignment_id": "two_sum_sorted",
+
+  "question": "Given a sorted array of integers and a target value, find two numbers such that they add up to the target. Return their 1-based indices. You can assume exactly one solution exists.",
+
+  "reference_solutions": {
+    "python": "n, target = map(int, input().split())\narr = list(map(int, input().split()))\nl, r = 0, n-1\nwhile l < r:\n    s = arr[l] + arr[r]\n    if s == target:\n        print(l+1, r+1)\n        break\n    elif s < target:\n        l += 1\n    else:\n        r -= 1",
+
+    "cpp": "#include <iostream>\nusing namespace std;\nint main(){int n,target;cin>>n>>target;int arr[n];for(int i=0;i<n;i++)cin>>arr[i];int l=0,r=n-1;while(l<r){int s=arr[l]+arr[r];if(s==target){cout<<l+1<<\" \"<<r+1;break;}else if(s<target)l++;else r--;}}",
+
+    "c": "#include <stdio.h>\nint main(){int n,target;scanf(\"%d %d\",&n,&target);int arr[n];for(int i=0;i<n;i++)scanf(\"%d\",&arr[i]);int l=0,r=n-1;while(l<r){int s=arr[l]+arr[r];if(s==target){printf(\"%d %d\",l+1,r+1);break;}else if(s<target)l++;else r--;}}",
+
+    "java": "import java.util.*; class Main{public static void main(String[] args){Scanner sc=new Scanner(System.in);int n=sc.nextInt(),target=sc.nextInt();int[] arr=new int[n];for(int i=0;i<n;i++)arr[i]=sc.nextInt();int l=0,r=n-1;while(l<r){int s=arr[l]+arr[r];if(s==target){System.out.println((l+1)+\" \"+(r+1));break;}else if(s<target)l++;else r--;}}}",
+
+    "javascript": "const input=require('fs').readFileSync(0,'utf-8').trim().split(/\\s+/).map(Number);let n=input[0],target=input[1];let arr=input.slice(2);let l=0,r=n-1;while(l<r){let s=arr[l]+arr[r];if(s===target){console.log(l+1,r+1);break;}else if(s<target)l++;else r--;}"
+  },
+
   "test_cases": [
-    { "input": "2 3", "expected_output": "5" },
-    { "input": "10 20", "expected_output": "30" }
+    {
+      "input": "5 9\n2 3 4 5 7",
+      "expected_output": "2 5"
+    },
+    {
+      "input": "4 6\n1 2 3 4",
+      "expected_output": "2 4"
+    }
   ]
 }

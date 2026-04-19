@@ -1,6 +1,5 @@
 import docker
 from pathlib import Path
-import json
 
 LANGUAGE_CONFIG = {
     "python": {
@@ -52,7 +51,6 @@ class DynamicAnalyzer:
         filename = code_path.name
 
         try:
-            # Build command
             if "compile" in config:
                 compile_cmd = config["compile"].format(file=filename)
 
@@ -81,12 +79,10 @@ class DynamicAnalyzer:
                 stderr=True
             )
 
-            # wait with timeout
             result = container.wait(timeout=TIMEOUT)
             exit_code = result["StatusCode"]
 
             logs = container.logs(stdout=True, stderr=True).decode()
-
             container.remove(force=True)
 
             return exit_code, logs.strip(), ""
@@ -112,8 +108,8 @@ class DynamicAnalyzer:
 
         results = []
 
-        for test in config.get("test_cases", []):
-            name = test.get("name", "test")
+        for i, test in enumerate(config.get("test_cases", [])):
+            name = test.get("name", f"test_{i+1}")
             input_data = str(test.get("input", ""))
             expected = str(test.get("expected_output", "")).strip()
 
@@ -121,26 +117,41 @@ class DynamicAnalyzer:
 
             exit_code, stdout, stderr = self.run_code(code_path, language, input_data)
 
+            # Default structure
+            result_entry = {
+                "name": name,
+                "test_case": i + 1,
+                "input": input_data,
+                "expected_output": expected,
+                "actual_output": stdout.strip(),
+                "status": "",
+                "error": ""
+            }
+
             if exit_code is None:
-                print(f"[RESULT] {name} → 🚨 ERROR")
-                results.append({"name": name, "status": "system_error", "error": stderr})
+                print(f"[RESULT] Test Case {i+1} → 🚨 ERROR")
+                result_entry["status"] = "system_error"
+                result_entry["error"] = stderr
 
             elif exit_code != 0:
-                print(f"[RESULT] {name} → 💥 RUNTIME ERROR")
-                results.append({"name": name, "status": "runtime_error", "error": stdout})
+                print(f"[RESULT] Test Case {i+1} → 💥 RUNTIME ERROR")
+                result_entry["status"] = "runtime_error"
+                result_entry["error"] = stdout
 
             elif stdout.strip() == expected:
-                print(f"[RESULT] {name} → ✅ PASS")
-                results.append({"name": name, "status": "pass"})
+                print(f"[RESULT] Test Case {i+1} → ✅ PASS")
+                result_entry["status"] = "pass"
 
             else:
-                print(f"[RESULT] {name} → ❌ FAIL")
-                results.append({
-                    "name": name,
-                    "status": "fail",
-                    "expected": expected,
-                    "actual": stdout
-                })
+                print(f"[RESULT] Test Case {i+1} → ❌ FAIL")
+                result_entry["status"] = "fail"
+
+            # 🔥 Debug prints (important)
+            print(f"       Input: {input_data}")
+            print(f"       Expected: {expected}")
+            print(f"       Output: {stdout.strip()}")
+
+            results.append(result_entry)
 
         submission['analysis']['dynamic'] = results
         print(f"\n[✅] Completed analysis for {student_id}")

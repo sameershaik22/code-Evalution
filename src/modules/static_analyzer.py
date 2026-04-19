@@ -1,5 +1,17 @@
 import ast
 
+# ✅ IMPORTS
+from .evaluation_engine.core_similarity.lexical_scorer import LexicalScorer
+from .evaluation_engine.core_similarity.codebleu_legacy import CodeBLEU
+from .evaluation_engine.core_similarity.weighted_ngram_scorer import WeightedNGramScorer
+
+# ✅ SAFE AST IMPORT
+try:
+    from .evaluation_engine.core_similarity.ast.ast_similarity import compute_ast_similarity
+except:
+    compute_ast_similarity = None
+
+
 class StaticAnalyzer:
 
     def _count_nodes(self, tree, node_type):
@@ -16,78 +28,153 @@ class StaticAnalyzer:
         config = submission['config']
         language = str(config.get('language', 'python')).lower()
 
+        # 🔥 Normalize language names
+        if language == "js":
+            language = "javascript"
+        if language == "c++":
+            language = "cpp"
+
+        # 🔥 Reference code
+        reference_solutions = config.get("reference_solutions", {})
+        reference_code = reference_solutions.get(language, "")
+
+        # 🔥 INIT SCORERS
+        lex_scorer = LexicalScorer()
+        codebleu = CodeBLEU()
+        ngram_scorer = WeightedNGramScorer()
+
         results = {
             "syntax_valid": None,
             "errors": [],
             "constructs_found": [],
             "metrics": {},
             "style_issues": [],
-            "conceptual_warnings": []
+            "conceptual_warnings": [],
+            "lexical_score": 0.0,
+            "weighted_ngram_score": 0.0,
+            "weight_2gram_score": 0.0,
+            "weight_3gram_score": 0.0,
+            "code_bleu_score": 0.0,
+            "ast_score": 0.0
         }
 
-        # ✅ Handle non-Python languages cleanly
+        # ================= NON-PYTHON =================
         if language != 'python':
             results['syntax_valid'] = True
             results['constructs_found'].append(
-                f"No static analysis performed for {language.upper()} code (Python-only feature)."
+                f"No static analysis performed for {language.upper()} code."
             )
+
+            if reference_code:
+                try:
+                    # 🔥 LEXICAL
+                    lex_result = lex_scorer.score(reference_code, code)
+
+                    # 🔥 NGRAM
+                    weign_result = ngram_scorer.score(reference_code, code)
+                    weign_result_2 = ngram_scorer.score(reference_code, code, n=2)
+                    weign_result_3 = ngram_scorer.score(reference_code, code, n=3)
+
+                    # 🔥 CODEBLEU
+                    bleu_result = codebleu.score(reference_code, code, language)
+
+                    if isinstance(bleu_result, dict):
+                        codebl_result = float(bleu_result.get("code_bleu", 0))
+                    elif hasattr(bleu_result, "score"):
+                        codebl_result = float(bleu_result.score)
+                    else:
+                        try:
+                            codebl_result = float(bleu_result)
+                        except:
+                            codebl_result = 0.0
+
+                    # 🔥 AST
+                    ast_score = 0.0
+                    if compute_ast_similarity:
+                        try:
+                            ast_score = float(compute_ast_similarity(reference_code, code))
+                        except:
+                            ast_score = 0.0
+
+                    # 🔥 FINAL UPDATE
+                    results.update({
+                        'lexical_score': float(lex_result),
+                        'weighted_ngram_score': float(weign_result),
+                        "weight_2gram_score": float(weign_result_2),
+                        "weight_3gram_score": float(weign_result_3),
+                        "code_bleu_score": codebl_result,
+                        'ast_score': ast_score
+                    })
+
+                except Exception as e:
+                    print("[STATIC ERROR NON-PYTHON]", e)
+
             submission['analysis']['static'] = results
-            print(f"[STATIC] Skipped static analysis for {student_id}: {language}")
             return submission
 
-        # ✅ Python static analysis
+        # ================= PYTHON STATIC =================
         try:
             tree = ast.parse(code)
             results['syntax_valid'] = True
 
-            # Metrics
             results['metrics']['for_loops'] = self._count_nodes(tree, ast.For)
             results['metrics']['while_loops'] = self._count_nodes(tree, ast.While)
             results['metrics']['if_statements'] = self._count_nodes(tree, ast.If)
             results['metrics']['function_definitions'] = self._count_nodes(tree, ast.FunctionDef)
 
-            # Functions
             defined_funcs = self._find_function_defs(tree)
             results['constructs_found'].append(
                 f"Defined functions: {', '.join(defined_funcs) if defined_funcs else 'None'}"
             )
 
-            # Execution mode handling
-            exec_mode = config.get('execution_mode', {})
-            if isinstance(exec_mode, str):
-                exec_mode = {"type": exec_mode}
+            # 🔥 SCORING
+            if reference_code:
+                try:
+                    # LEXICAL
+                    lex_result = lex_scorer.score(reference_code, code)
 
-            if exec_mode.get('type') == 'function':
-                entry_point = exec_mode.get('entry_point')
-                if entry_point and entry_point not in defined_funcs:
-                    results['errors'].append(f"Expected function '{entry_point}' not defined.")
-                    results['conceptual_warnings'].append(
-                        f"You were expected to define a function named '{entry_point}', but it was not found."
-                    )
+                    # NGRAM
+                    weign_result = ngram_scorer.score(reference_code, code)
+                    weign_result_2 = ngram_scorer.score(reference_code, code, n=2)
+                    weign_result_3 = ngram_scorer.score(reference_code, code, n=3)
 
-            # Detect input usage
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-                    if node.func.id == 'input':
-                        results['constructs_found'].append("Uses input()")
-                        results['style_issues'].append(
-                            "Consider handling invalid input using try-except for better robustness."
-                        )
-                        break
+                    # CODEBLEU
+                    bleu_result = codebleu.score(reference_code, code, language)
+
+                    if isinstance(bleu_result, dict):
+                        codebl_result = float(bleu_result.get("code_bleu", 0))
+                    elif hasattr(bleu_result, "score"):
+                        codebl_result = float(bleu_result.score)
+                    else:
+                        try:
+                            codebl_result = float(bleu_result)
+                        except:
+                            codebl_result = 0.0
+
+                    # AST
+                    ast_score = 0.0
+                    if compute_ast_similarity:
+                        try:
+                            ast_score = float(compute_ast_similarity(reference_code, code))
+                        except:
+                            ast_score = 0.0
+
+                    # FINAL UPDATE
+                    results.update({
+                        'lexical_score': float(lex_result),
+                        'weighted_ngram_score': float(weign_result),
+                        "weight_2gram_score": float(weign_result_2),
+                        "weight_3gram_score": float(weign_result_3),
+                        "code_bleu_score": codebl_result,
+                        'ast_score': ast_score
+                    })
+
+                except Exception as e:
+                    print("[STATIC ERROR PYTHON]", e)
 
         except SyntaxError as e:
             results['syntax_valid'] = False
-            results['errors'].append(
-                f"Syntax Error: {e.msg} at line {e.lineno}, position {e.offset}"
-            )
-            results['constructs_found'] = ["Syntax error prevented further analysis"]
+            results['errors'].append(str(e))
 
         submission['analysis']['static'] = results
-
-        print(
-            f"[STATIC] Analysis for {student_id}: "
-            f"For loops: {results['metrics'].get('for_loops', 0)}, "
-            f"Functions: {results['metrics'].get('function_definitions', 0)}"
-        )
-
         return submission

@@ -137,3 +137,17 @@ xxhash==3.5.0
 yarl==1.20.1
 zipp==3.23.0
 zstandard==0.23.0
+
+
+
+
+codebleu==0.7.0
+
+# AST / parsing
+tree-sitter==0.22.3
+tree-sitter-python==0.21.0
+tree-sitter-javascript==0.21.0
+tree-sitter-java==0.21.0
+tree-sitter-cpp==0.21.0
+tree-sitter-c==0.21.0
+tree-sitter-languages==1.10.2
