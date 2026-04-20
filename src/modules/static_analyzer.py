@@ -55,7 +55,8 @@ class StaticAnalyzer:
             "weight_2gram_score": 0.0,
             "weight_3gram_score": 0.0,
             "code_bleu_score": 0.0,
-            "ast_score": 0.0
+            "ast_score": 0.0,
+            "similarity_score": 0.0   # ⭐ NEW
         }
 
         # ================= NON-PYTHON =================
@@ -67,15 +68,15 @@ class StaticAnalyzer:
 
             if reference_code:
                 try:
-                    # 🔥 LEXICAL
+                    # ✅ FIXED LEXICAL
                     lex_result = lex_scorer.score(reference_code, code)
 
-                    # 🔥 NGRAM
-                    weign_result = ngram_scorer.score(reference_code, code)
-                    weign_result_2 = ngram_scorer.score(reference_code, code, n=2)
-                    weign_result_3 = ngram_scorer.score(reference_code, code, n=3)
+                    # ✅ FIXED NGRAM
+                    weign_result = ngram_scorer.score(reference_code, code, language=language)
+                    weign_result_2 = ngram_scorer.score(reference_code, code, language=language, n=2)
+                    weign_result_3 = ngram_scorer.score(reference_code, code, language=language, n=3)
 
-                    # 🔥 CODEBLEU
+                    # CODEBLEU
                     bleu_result = codebleu.score(reference_code, code, language)
 
                     if isinstance(bleu_result, dict):
@@ -88,22 +89,32 @@ class StaticAnalyzer:
                         except:
                             codebl_result = 0.0
 
-                    # 🔥 AST
-                    ast_score = 0.0
-                    if compute_ast_similarity:
-                        try:
+                    # ✅ FIXED AST (WITH FALLBACK)
+                    try:
+                        if compute_ast_similarity:
                             ast_score = float(compute_ast_similarity(reference_code, code))
-                        except:
-                            ast_score = 0.0
+                        else:
+                            tree1 = ast.parse(reference_code)
+                            tree2 = ast.parse(code)
+                            ast_score = 1.0 if ast.dump(tree1) == ast.dump(tree2) else 0.5
+                    except:
+                        ast_score = 0.0
 
-                    # 🔥 FINAL UPDATE
+                    # ✅ NORMALIZE + FINAL SCORE
+                    lex = min(max(float(lex_result), 0), 1)
+                    bleu = min(max(float(codebl_result), 0), 1)
+                    ast_val = min(max(float(ast_score), 0), 1)
+
+                    similarity = (0.1 * lex) + (0.2 * bleu) + (0.2 * ast_val)
+
                     results.update({
-                        'lexical_score': float(lex_result),
+                        'lexical_score': round(lex, 3),
                         'weighted_ngram_score': float(weign_result),
                         "weight_2gram_score": float(weign_result_2),
                         "weight_3gram_score": float(weign_result_3),
-                        "code_bleu_score": codebl_result,
-                        'ast_score': ast_score
+                        "code_bleu_score": round(bleu, 3),
+                        'ast_score': round(ast_val, 3),
+                        'similarity_score': round(similarity, 3)
                     })
 
                 except Exception as e:
@@ -127,16 +138,15 @@ class StaticAnalyzer:
                 f"Defined functions: {', '.join(defined_funcs) if defined_funcs else 'None'}"
             )
 
-            # 🔥 SCORING
             if reference_code:
                 try:
                     # LEXICAL
                     lex_result = lex_scorer.score(reference_code, code)
 
                     # NGRAM
-                    weign_result = ngram_scorer.score(reference_code, code)
-                    weign_result_2 = ngram_scorer.score(reference_code, code, n=2)
-                    weign_result_3 = ngram_scorer.score(reference_code, code, n=3)
+                    weign_result = ngram_scorer.score(reference_code, code, language=language)
+                    weign_result_2 = ngram_scorer.score(reference_code, code, language=language, n=2)
+                    weign_result_3 = ngram_scorer.score(reference_code, code, language=language, n=3)
 
                     # CODEBLEU
                     bleu_result = codebleu.score(reference_code, code, language)
@@ -151,22 +161,33 @@ class StaticAnalyzer:
                         except:
                             codebl_result = 0.0
 
-                    # AST
-                    ast_score = 0.0
-                    if compute_ast_similarity:
-                        try:
+                    # ✅ FIXED AST
+                    try:
+                        if compute_ast_similarity:
                             ast_score = float(compute_ast_similarity(reference_code, code))
-                        except:
-                            ast_score = 0.0
+                        else:
+                            tree1 = ast.parse(reference_code)
+                            tree2 = ast.parse(code)
+                            ast_score = 1.0 if ast.dump(tree1) == ast.dump(tree2) else 0.5
+                    except Exception as e:
+                        print("[AST ERROR]", e)
+                        ast_score = 0.0
 
-                    # FINAL UPDATE
+                    # ✅ NORMALIZE + FINAL SCORE
+                    lex = min(max(float(lex_result.score), 0), 1)
+                    bleu = min(max(float(codebl_result), 0), 1)
+                    ast_val = min(max(float(ast_score), 0), 1)
+
+                    similarity = (0.1 * lex) + (0.2 * bleu) + (0.2 * ast_val)
+
                     results.update({
-                        'lexical_score': float(lex_result),
-                        'weighted_ngram_score': float(weign_result),
-                        "weight_2gram_score": float(weign_result_2),
-                        "weight_3gram_score": float(weign_result_3),
-                        "code_bleu_score": codebl_result,
-                        'ast_score': ast_score
+                        'lexical_score': round(lex, 3),
+                        'weighted_ngram_score': weign_result,
+                        "weight_2gram_score": weign_result_2,
+                        "weight_3gram_score": weign_result_3,
+                        "code_bleu_score": round(bleu, 3),
+                        'ast_score': round(ast_val, 3),
+                        'similarity_score': round(similarity, 3)
                     })
 
                 except Exception as e:

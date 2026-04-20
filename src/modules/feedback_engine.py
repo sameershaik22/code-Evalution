@@ -30,7 +30,6 @@ def ollama_generate(system_prompt: str, user_prompt: str, temperature: float = 0
 class FeedbackEngine:
 
     def should_call_llm(self, dynamic_results):
-        # ✅ Always call AI (fix inconsistency)
         return True
 
     def get_system_prompt(self, language: str):
@@ -98,7 +97,13 @@ Keep it natural and human-like.
         dynamic_results = submission['analysis'].get('dynamic', [])
         static_results = submission['analysis'].get('static', {})
 
-        # 🔥 Collect runtime errors
+        # ================= SCORES (ADDED) =================
+        lexical = static_results.get("lexical_score", 0)
+        codebleu = static_results.get("code_bleu_score", 0)
+        ast_score = static_results.get("ast_score", 0)
+        final_score = submission.get('analysis', {}).get('final_score', "N/A")
+
+        # ================= ERRORS =================
         errors = []
         for t in dynamic_results:
             if t.get("status") in ["runtime_error", "system_error"]:
@@ -106,12 +111,13 @@ Keep it natural and human-like.
 
         error_message = "\n".join(errors) if errors else "No runtime errors"
 
-        # ✅ CLEAN summary instead of raw JSON
+        # ================= TEST RESULTS =================
         passed = sum(1 for t in dynamic_results if t.get("status") == "pass")
         failed = len(dynamic_results) - passed
 
         system_prompt = self.get_system_prompt(language)
 
+        # ================= PROMPT (UPDATED WITH SCORES) =================
         user_prompt = f"""
 Problem:
 {question}
@@ -122,6 +128,14 @@ Code:
 Test Results:
 Passed: {passed}
 Failed: {failed}
+
+Code Quality Scores:
+Lexical Score: {lexical}
+CodeBLEU Score: {codebleu}
+AST Score: {ast_score}
+
+Final Score:
+{final_score} / 100
 
 Errors:
 {error_message}
@@ -134,5 +148,13 @@ Give helpful feedback to the student.
         response = ollama_generate(system_prompt, user_prompt)
 
         submission['analysis']['feedback']['technical_summary'] = response.strip()
+
+        # ================= STORE SCORES (ADDED) =================
+        submission['analysis']['feedback']['scores'] = {
+            "lexical": lexical,
+            "codebleu": codebleu,
+            "ast": ast_score,
+            "final": final_score
+        }
 
         return submission

@@ -8,6 +8,7 @@ from .modules.feedback_engine import FeedbackEngine
 from .modules.feedback_generator import FeedbackGenerator
 from .modules.analytics_engine import AnalyticsEngine
 
+
 class Pipeline:
     def __init__(self, config_path_str: str, submissions_path_str: str,
                  output_path_str: str, execution_level: str = 'full'):
@@ -19,13 +20,13 @@ class Pipeline:
         self.config_path = Path(config_path_str)
         self.submissions_path = Path(submissions_path_str)
         self.output_path = Path(output_path_str)
-        self.execution_level = execution_level.lower() # Store the level
+        self.execution_level = execution_level.lower()
 
-        # Initialize base modules that always run
+        # Base modules
         self.ingestor = Ingestor()
         self.static_analyzer = StaticAnalyzer()
         
-        # Conditionally initialize engines based on execution level to save resources when stages are skipped.
+        # Conditional modules
         self.dynamic_analyzer = DynamicAnalyzer() if self.execution_level in ["dynamic", "embedding", "full"] else None
         self.embedding_engine = EmbeddingEngine() if self.execution_level in ["embedding", "full"] else None
         self.feedback_engine = FeedbackEngine() if self.execution_level == "full" else None
@@ -36,7 +37,6 @@ class Pipeline:
         print(f"[PIPELINE] All necessary modules for level '{self.execution_level}' initialized.")
 
     def _get_assignment_id_from_submissions(self, submissions_data: list) -> str:
-        # This method remains unchanged
         if submissions_data and submissions_data[0].get('config'):
             return submissions_data[0]['config'].get('assignment_id', 'unknown_assignment')
         return "unknown_assignment"
@@ -48,28 +48,47 @@ class Pipeline:
         student_id = submission_data.get('student_id', 'UnknownStudent')
         print(f"\n--- Processing Submission for: {student_id} ---")
 
-        # Initialize analysis structure if not present
         if 'analysis' not in submission_data:
             submission_data['analysis'] = {}
-            
-        # Stage 1: Static Analysis (always runs)
+
+        # ================= STAGE 1: STATIC =================
         analyzed_submission = self.static_analyzer.analyze(submission_data)
 
-        # Stage 2: Dynamic Analysis (runs for 'dynamic', 'embedding', and 'full')
-        if self.dynamic_analyzer: # Check if the engine was initialized
+        # ================= STAGE 2: DYNAMIC =================
+        if self.dynamic_analyzer:
             analyzed_submission = self.dynamic_analyzer.analyze(analyzed_submission)
-        
-        # Stage 3: Embedding Generation (runs for 'embedding' and 'full')
-        if self.embedding_engine: # Check if the engine was initialized
+
+        # ================= ✅ FINAL SCORE =================
+        try:
+            dynamic_results = analyzed_submission.get('analysis', {}).get('dynamic', [])
+
+            passed = sum(1 for t in dynamic_results if t.get("status") == "pass")
+            total = len(dynamic_results)
+
+            test_score = passed / total if total > 0 else 0
+
+            static_data = analyzed_submission.get('analysis', {}).get('static', {})
+            similarity = static_data.get('similarity_score', 0)
+
+            final_score = (0.5 * test_score + similarity) * 100
+
+            analyzed_submission['analysis']['final_score'] = round(final_score, 2)
+
+            print(f"[FINAL SCORE] {student_id}: {analyzed_submission['analysis']['final_score']}")
+
+        except Exception as e:
+            print("[FINAL SCORE ERROR]", e)
+
+        # ================= STAGE 3: EMBEDDING =================
+        if self.embedding_engine:
             analyzed_submission = self.embedding_engine.analyze(analyzed_submission)
 
-        # Stage 4: Generative Feedback (runs only for 'full')
-        if self.feedback_engine: # Check if the engine was initialized
+        # ================= STAGE 4: FEEDBACK =================
+        if self.feedback_engine:
             analyzed_submission = self.feedback_engine.analyze(analyzed_submission)
 
         print(f"--- Finished Processing for: {student_id} ---")
         return analyzed_submission
-
 
     def run(self):
         """
@@ -82,48 +101,59 @@ class Pipeline:
         raw_submissions_data = self.ingestor.load_submissions(
             str(self.config_path), str(self.submissions_path)
         )
+
         if not raw_submissions_data:
             print("[PIPELINE] No submissions found or loaded. Exiting.")
             return
+
         print(f"[PIPELINE] Ingested {len(raw_submissions_data)} submissions.")
 
-        # 2. Per-Submission Analysis
+        # 2. Processing
         processed_submissions = []
+
         for submission_data_item in raw_submissions_data:
             try:
                 processed_submission = self._process_single_submission(submission_data_item)
                 processed_submissions.append(processed_submission)
             except Exception as e:
                 student_id = submission_data_item.get('student_id', 'UnknownStudent')
-                print(f"[PIPELINE] ERROR: Unhandled exception while processing submission for {student_id}: {e}")
+                print(f"[PIPELINE] ERROR processing {student_id}: {e}")
+
                 processed_submissions.append({
                     "student_id": student_id,
                     "error_processing": str(e),
-                    "config": submission_data_item.get('config', {}), 
-                    "analysis": {} 
+                    "config": submission_data_item.get('config', {}),
+                    "analysis": {}
                 })
 
         assignment_id_for_report = self._get_assignment_id_from_submissions(processed_submissions)
-        
-        # 3. Aggregated Feedback Generation (always runs, content depends on what was analyzed)
+
+        # 3. Feedback Report
         if processed_submissions:
             self.feedback_generator.generate_all_reports(
-                processed_submissions, str(self.output_path), assignment_id_for_report
+                processed_submissions,
+                str(self.output_path),
+                assignment_id_for_report
             )
         else:
-            print("[PIPELINE] No submissions processed, skipping feedback report.")
+            print("[PIPELINE] No submissions processed.")
 
-        # 4. Instructor Analytics
+        # 4. Analytics
         print("\n[PIPELINE] Generating instructor analytics...")
+
         if processed_submissions and self.execution_level in ["embedding", "full"]:
             self.analytics_engine.generate_report(
-                processed_submissions, str(self.output_path), assignment_id_for_report
+                processed_submissions,
+                str(self.output_path),
+                assignment_id_for_report
             )
         else:
-            print("[PIPELINE] Skipping analytics generation (requires 'embedding' or 'full' level).")
-            
+            print("[PIPELINE] Skipping analytics generation.")
+
         # 5. Completion
         end_time = time.time()
         total_time = end_time - start_time
-        print(f"\n[PIPELINE] Grading process completed in {total_time:.2f} seconds.")
-        print(f"All tasks finished. Check '{self.output_path}' for reports.")
+
+        print(f"\n[PIPELINE] Completed in {total_time:.2f} seconds.")
+        print(f"Reports available at: {self.output_path}")
+           

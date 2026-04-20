@@ -40,7 +40,7 @@ class FeedbackGenerator:
             report_lines.append(f"- For Loops: {metrics.get('for_loops', 0)}")
             report_lines.append(f"- Function Definitions: {metrics.get('function_definitions', 0)}")
 
-        # 🔥 ================= CODE QUALITY SCORES =================
+        # ================= CODE QUALITY =================
         report_lines.append("\n--- CODE QUALITY SCORES ---\n")
 
         def safe(val):
@@ -49,6 +49,12 @@ class FeedbackGenerator:
         report_lines.append(f"- Lexical Score: {safe(static_results.get('lexical_score'))}")
         report_lines.append(f"- CodeBLEU Score: {safe(static_results.get('code_bleu_score'))}")
         report_lines.append(f"- AST Score: {safe(static_results.get('ast_score'))}%")
+
+        # ================= FINAL SCORE (ADDED) =================
+        final_score = submission.get("analysis", {}).get("final_score", "N/A")
+
+        report_lines.append("\n--- FINAL SCORE ---\n")
+        report_lines.append(f"Overall Score: {final_score} / 100\n")
 
         # ================= DYNAMIC =================
         report_lines.append("\n--- DYNAMIC ANALYSIS (Test Results) ---\n")
@@ -141,6 +147,7 @@ class FeedbackGenerator:
             'tests_passed',
             'tests_total',
             'score_percentage',
+            'final_score',   # ⭐ ADDED
             'semantic_summary',
             'code_snippet'
         ]
@@ -157,6 +164,7 @@ class FeedbackGenerator:
                     self.generate_individual_report_string(submission)
 
                 score_percentage = (passed_count / total_tests * 100) if total_tests > 0 else 0
+                final_score = submission.get("analysis", {}).get("final_score", "N/A")
 
                 summary_for_csv = summary.replace('\n', ' ') if summary else "N/A"
                 code_for_csv = code_snippet.replace('\n', '\\n') if code_snippet else "No Code Found"
@@ -166,6 +174,7 @@ class FeedbackGenerator:
                     'tests_passed': passed_count,
                     'tests_total': total_tests,
                     'score_percentage': f"{score_percentage:.2f}",
+                    'final_score': final_score,
                     'semantic_summary': summary_for_csv,
                     'code_snippet': code_for_csv
                 })
